@@ -16,27 +16,6 @@ class Wave_Header {
 public:
     Wave_Header() = default;
 
-    // Copy Constructor to move wav header to new file
-    Wave_Header(const Wave_Header &other) {
-        for (auto i = 0; i < 4; i++)
-            RIFF[i] = other.RIFF[i];
-        ChunkSize = other.ChunkSize;
-        for (auto i = 0; i < 4; i++)
-            WAVE[i] = other.WAVE[i];
-        for (auto i = 0; i < 4; i++)
-            fmt[i] = other.fmt[i];
-        Subchunk1Size = other.Subchunk1Size;
-        AudioFormat = other.AudioFormat;
-        NumOfChan = other.NumOfChan;
-        SamplesPerSec = other.SamplesPerSec;
-        bytesPerSec = other.bytesPerSec;
-        blockAlign = other.blockAlign;
-        bitsPerSample = other.bitsPerSample;
-        for (auto i = 0; i < 4; i++)
-            Subchunk2ID[i] = other.Subchunk2ID[i];
-        Subchunk2Size = other.Subchunk2Size;
-    };
-
     void getHeader(std::fstream &fstream) {
         fstream.read(reinterpret_cast<char *>(RIFF), 4);
         fstream.read(reinterpret_cast<char *>(&ChunkSize), 4);
@@ -53,6 +32,22 @@ public:
         fstream.read(reinterpret_cast<char *>(&Subchunk2Size), 4);
     };
 
+    void writeHeader(std::fstream &fstream) {
+        fstream.write(reinterpret_cast<char *>(RIFF), 4);
+        fstream.write(reinterpret_cast<char *>(&ChunkSize), 4);
+        fstream.write(reinterpret_cast<char *>(WAVE), 4);
+        fstream.write(reinterpret_cast<char *>(fmt), 4);
+        fstream.write(reinterpret_cast<char *>(&Subchunk1Size), 4);
+        fstream.write(reinterpret_cast<char *>(&AudioFormat), 2);
+        fstream.write(reinterpret_cast<char *>(&NumOfChan), 2);
+        fstream.write(reinterpret_cast<char *>(&SamplesPerSec), 4);
+        fstream.write(reinterpret_cast<char *>(&bytesPerSec), 4);
+        fstream.write(reinterpret_cast<char *>(&blockAlign), 2);
+        fstream.write(reinterpret_cast<char *>(&bitsPerSample), 2);
+        fstream.write(reinterpret_cast<char *>(Subchunk2ID), 4);
+        fstream.write(reinterpret_cast<char *>(&Subchunk2Size), 4);
+    };
+
     void setSamplesPerSec(uint32_t samplesPerSec) {
         SamplesPerSec = samplesPerSec;
     }
@@ -65,7 +60,12 @@ public:
         return Subchunk2Size;
     }
 
+    size_t getHeaderSize() const {
+        return size;
+    }
+
 private:
+
     /* RIFF Chunk Descriptor */
     uint8_t RIFF[4]{}; // RIFF Header Magic Header
     uint32_t ChunkSize{}; // RIFF Chunk Size
@@ -84,40 +84,49 @@ private:
     /* m_byteData sub-chunk */
     uint8_t Subchunk2ID[4]{}; // "m_byteData" string
     uint32_t Subchunk2Size{}; // Sampled data length
+
+    // WAV Header is always 44 bytes
+    size_t size{44};
 };
 
 
 template<typename T>
-class Wave {
+class Wave : public Wave_Header {
 public:
-    Wave() : m_Data(nullptr), m_byteData(nullptr), m_headerIn(nullptr), m_headerOut(nullptr) {};
+    Wave() : m_Data(nullptr), m_byteData(nullptr) {};
 
     ~Wave() {
         delete m_fileNameIn;
         delete m_fileNameOut;
-        delete m_headerIn;
-        delete m_headerOut;
         delete[] m_Data;
         delete[] m_byteData;
     };
 
-    void getHeader() {
-        m_fileStream.open(*m_fileNameIn, std::ios::in);
+    void checkFileStream(){
         if (!m_fileStream.is_open()) {
-            std::cout << "No File Found..." << std::endl;
-            return;
+            throw std::runtime_error("File Stream Failed to Open");
         }
-        m_headerIn = new Wave_Header;
-        m_headerIn->getHeader(m_fileStream);
-        m_fileStream.close();
-        m_byteLength = m_headerIn->getSubchunk2Size();
-        m_dataLength = m_byteLength / sizeof(u_int16_t);
-        copyHeader();
-    };
+    }
 
-    void copyHeader() {
-        m_headerOut = new Wave_Header;
-        *m_headerOut = *m_headerIn;
+    void checkFileOutName(){
+        if (m_fileNameOut == nullptr) {
+            throw std::runtime_error("File Out Name Is Not Set");
+        }
+    }
+    void checkFileInName(){
+        if (m_fileNameIn == nullptr) {
+            throw std::runtime_error("File In Name Is Not Set");
+        }
+    }
+
+    void readHeader() {
+        checkFileInName();
+        m_fileStream.open(*m_fileNameIn, std::ios::in);
+        checkFileStream();
+        getHeader(m_fileStream);
+        m_fileStream.close();
+        m_byteLength = getSubchunk2Size();
+        m_dataLength = m_byteLength / sizeof(u_int16_t);
     };
 
     void setFileNameIn(const std::string &fileNameIn) {
@@ -129,14 +138,11 @@ public:
     }
 
     void getData() {
-        if (m_headerIn == nullptr) {
-            std::cout << "No name set" << std::endl;
-            return;
-        }
+        checkFileInName();
         m_byteData = new int8_t[m_byteLength];
-
         m_fileStream.open(*m_fileNameIn, std::ios::in);
-        m_fileStream.seekg(sizeof(Wave_Header), std::ios::beg);
+        checkFileStream();
+        m_fileStream.seekg(getHeaderSize(), std::ios::beg);
         m_fileStream.read(reinterpret_cast<char *>(m_byteData), m_byteLength);
         m_fileStream.close();
 
@@ -153,13 +159,13 @@ public:
     };
 
     void writeData() {
-        if (m_fileNameOut == nullptr || m_headerOut == nullptr) {
-            std::cout << "Cannot write out... Is File Name Set? Does object have header?" << std::endl;
-            return;
-        }
+        // Check there is a file name
+        checkFileOutName();
+        // Open up and check the file stream
         m_fileStream.open(*m_fileNameOut, std::ios::out);
+        checkFileStream();
         // Write the m_headerIn of the file
-        m_fileStream.write(reinterpret_cast<char *>(m_headerOut), sizeof(Wave_Header));
+        writeHeader(m_fileStream);
 
         for (int i = 0; i < m_dataLength; i++) {
             // Get the value from out data array
@@ -174,21 +180,18 @@ public:
     };
 
     void changeSampleRate(uint32_t rate) {
-        if (m_headerOut != nullptr) {
-            m_headerOut->setSamplesPerSec(rate);
-            m_headerOut->setBytesPerSec(2 * rate);
-        }
+        setSamplesPerSec(rate);
+        setBytesPerSec(2 * rate);
     }
 
     void writeDataWithMute() {
-        if (m_fileNameOut == nullptr || m_headerOut == nullptr) {
-            std::cout << "Cannot write out... Is File Name Set? Does object have header?" << std::endl;
-            return;
-        }
-        // Write the m_headerIn of the file
+        // Check there is a file name
+        // Open up the File Stream
+        checkFileOutName();
         m_fileStream.open(*m_fileNameOut, std::ios::out);
-        m_fileStream.write(reinterpret_cast<char *>(m_headerOut), sizeof(Wave_Header));
-
+        checkFileStream();
+        // Write the header to the file
+        writeHeader(m_fileStream);
         for (int i = 0; i < m_dataLength; i++) {
             u_int16_t littleEndianValue;
             // Get the value from out data array
@@ -209,8 +212,6 @@ public:
 private:
     std::string *m_fileNameIn{nullptr};
     std::string *m_fileNameOut{nullptr};
-    Wave_Header *m_headerIn;
-    Wave_Header *m_headerOut;
     std::fstream m_fileStream;
     int8_t *m_byteData;
     size_t m_byteLength{0};
