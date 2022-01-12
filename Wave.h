@@ -15,17 +15,18 @@
 class WaveHeader {
 public:
     WaveHeader() = default;
+
     ~WaveHeader() = default;
 
     void getHeader(std::fstream &fstream) {
         fstream.read(reinterpret_cast<char *>(RIFF), 4);
-        fstream.read(reinterpret_cast<char *>(&ChunkSize), 4);
+        fstream.read(reinterpret_cast<char *>(&chunkSize), 4);
         fstream.read(reinterpret_cast<char *>(WAVE), 4);
         fstream.read(reinterpret_cast<char *>(fmt), 4);
-        fstream.read(reinterpret_cast<char *>(&Subchunk1Size), 4);
-        fstream.read(reinterpret_cast<char *>(&AudioFormat), 2);
-        fstream.read(reinterpret_cast<char *>(&NumOfChan), 2);
-        fstream.read(reinterpret_cast<char *>(&SamplesPerSec), 4);
+        fstream.read(reinterpret_cast<char *>(&subchunk1Size), 4);
+        fstream.read(reinterpret_cast<char *>(&audioFormat), 2);
+        fstream.read(reinterpret_cast<char *>(&numOfChan), 2);
+        fstream.read(reinterpret_cast<char *>(&samplesPerSec), 4);
         fstream.read(reinterpret_cast<char *>(&bytesPerSec), 4);
         fstream.read(reinterpret_cast<char *>(&blockAlign), 2);
         fstream.read(reinterpret_cast<char *>(&bitsPerSample), 2);
@@ -35,13 +36,13 @@ public:
 
     void writeHeader(std::fstream &fstream) {
         fstream.write(reinterpret_cast<char *>(RIFF), 4);
-        fstream.write(reinterpret_cast<char *>(&ChunkSize), 4);
+        fstream.write(reinterpret_cast<char *>(&chunkSize), 4);
         fstream.write(reinterpret_cast<char *>(WAVE), 4);
         fstream.write(reinterpret_cast<char *>(fmt), 4);
-        fstream.write(reinterpret_cast<char *>(&Subchunk1Size), 4);
-        fstream.write(reinterpret_cast<char *>(&AudioFormat), 2);
-        fstream.write(reinterpret_cast<char *>(&NumOfChan), 2);
-        fstream.write(reinterpret_cast<char *>(&SamplesPerSec), 4);
+        fstream.write(reinterpret_cast<char *>(&subchunk1Size), 4);
+        fstream.write(reinterpret_cast<char *>(&audioFormat), 2);
+        fstream.write(reinterpret_cast<char *>(&numOfChan), 2);
+        fstream.write(reinterpret_cast<char *>(&samplesPerSec), 4);
         fstream.write(reinterpret_cast<char *>(&bytesPerSec), 4);
         fstream.write(reinterpret_cast<char *>(&blockAlign), 2);
         fstream.write(reinterpret_cast<char *>(&bitsPerSample), 2);
@@ -51,7 +52,7 @@ public:
 
 
     void setSamplesPerSec(uint32_t samplesPerSec) {
-        SamplesPerSec = samplesPerSec;
+        samplesPerSec = samplesPerSec;
     }
 
     void setBytesPerSec(uint32_t bytesPerSec) {
@@ -63,20 +64,20 @@ public:
     }
 
     size_t getHeaderSize() const {
-        return size;
+        return m_size;
     }
 
     void printInfo() {
         std::cout << "RIFF Head: ";
         printHead(RIFF);
-        std::cout << "File Size: " << ChunkSize << std::endl;
+        std::cout << "File Size: " << chunkSize << std::endl;
         std::cout << "WAVE Head: ";
         printHead(WAVE);
         std::cout << "fmt Head: ";
         printHead(fmt);
-        std::cout << "Chunk 1 Size: " << Subchunk1Size << std::endl;
-        std::cout << "Channels: " << NumOfChan << std::endl;
-        std::cout << "Sample Rate: " << SamplesPerSec << std::endl;
+        std::cout << "Chunk 1 Size: " << subchunk1Size << std::endl;
+        std::cout << "Channels: " << numOfChan << std::endl;
+        std::cout << "Sample Rate: " << samplesPerSec << std::endl;
         std::cout << "Byte Rate: " << bytesPerSec << std::endl;
         std::cout << "Bits Per Sample: " << bitsPerSample << std::endl;
         printHead(Subchunk2ID);
@@ -91,15 +92,15 @@ private:
 
     /* RIFF Chunk Descriptor */
     char RIFF[4]{}; // RIFF Header Magic Header
-    uint32_t ChunkSize{}; // RIFF Chunk Size
+    uint32_t chunkSize{}; // RIFF Chunk Size
     char WAVE[4]{}; // WAVE Header
 
     /* "fmt" sub-chunk */
     char fmt[4]{}; // FMT m_headerIn
-    uint32_t Subchunk1Size{}; // Size of the fmt chunk
-    uint16_t AudioFormat{}; // Audio Format 1=PCM, 6=mulaw, 7=a-law
-    uint16_t NumOfChan{}; // Number of channels
-    uint32_t SamplesPerSec{}; // Sample Rate
+    uint32_t subchunk1Size{}; // Size of the fmt chunk
+    uint16_t audioFormat{}; // Audio Format 1=PCM, 6=mulaw, 7=a-law
+    uint16_t numOfChan{}; // Number of channels
+    uint32_t samplesPerSec{}; // Sample Rate
     uint32_t bytesPerSec{}; // bytes per second
     uint16_t blockAlign{};// 2=16-bit mono, 4=16-bit stereo
     uint16_t bitsPerSample{}; // Number of bits per sample
@@ -109,7 +110,7 @@ private:
     uint32_t Subchunk2Size{}; // Sampled data length
 
     // WAV Header is always 44 bytes
-    size_t size{44};
+    size_t m_size{44};
 };
 
 
@@ -162,7 +163,6 @@ private:
             throw std::runtime_error("File Out Name Is Not Set");
         }
     }
-
 
     void readHeader() {
         checkFileName();
