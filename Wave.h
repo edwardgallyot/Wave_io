@@ -149,7 +149,7 @@ public:
         setBytesPerSec(2 * rate);
     }
 
-    void clearFileName() { m_fileName = nullptr; };
+    void clearFileName() { delete m_fileName; };
 
 private:
     void checkFileStream() {
@@ -160,7 +160,7 @@ private:
 
     void checkFileName() {
         if (m_fileName == nullptr) {
-            throw std::runtime_error("File Out Name Is Not Set");
+            throw std::runtime_error("File Name Is Not Set");
         }
     }
 
@@ -175,7 +175,10 @@ private:
     };
 
     void setFileName(const std::string &fileName) {
-        m_fileName = new std::string{fileName};
+        if (m_fileName == nullptr)
+            m_fileName = new std::string{fileName};
+        else
+            *m_fileName = fileName;
     }
 
     void readData() {
