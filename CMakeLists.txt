@@ -3,4 +3,4 @@ project(Wave_io)
 
 set(CMAKE_CXX_STANDARD 14)
 
-add_executable(Wave_io main.cpp Wave.h)
+add_executable(Wave_io main.cpp Wave.h )

@@ -51,8 +51,8 @@ public:
     };
 
 
-    void setSamplesPerSec(uint32_t samplesPerSec) {
-        samplesPerSec = samplesPerSec;
+    void setSamplesPerSec(uint32_t p_samplesPerSec) {
+        samplesPerSec = p_samplesPerSec;
     }
 
     void setBytesPerSec(uint32_t bytesPerSec) {
@@ -68,26 +68,26 @@ public:
     }
 
     void printInfo() {
-        std::cout << "RIFF Head: ";
+        std::cout << std::endl;
         printHead(RIFF);
         std::cout << "File Size: " << chunkSize << std::endl;
-        std::cout << "WAVE Head: ";
+        std::cout << std::endl;
         printHead(WAVE);
-        std::cout << "fmt Head: ";
         printHead(fmt);
         std::cout << "Chunk 1 Size: " << subchunk1Size << std::endl;
         std::cout << "Channels: " << numOfChan << std::endl;
         std::cout << "Sample Rate: " << samplesPerSec << std::endl;
         std::cout << "Byte Rate: " << bytesPerSec << std::endl;
         std::cout << "Bits Per Sample: " << bitsPerSample << std::endl;
+        std::cout << std::endl;
         printHead(Subchunk2ID);
-        std::cout << "Size Of Data: " << Subchunk2Size << std::endl;
+        std::cout << "Size: " << Subchunk2Size << std::endl;
     };
 private:
     static void printHead(char *head) {
         for (auto i = 0; i < 4; i++)
             std::cout << head[i];
-        std::cout << std::endl;
+        std::cout << ": " << std::endl;
     }
 
     /* RIFF Chunk Descriptor */
@@ -196,11 +196,15 @@ private:
             // Bitwise or is the same as adding two byte values together
             // In a 16 bit integer if we shift the second byte to be first we have a little endian byte form.
             // If we were on a big endian machine we sould swap the two terms either side of bitwise or around
-            int16_t sample_i = ((m_byteData[i] & 0xff) | (m_byteData[i + 1] << 8));
-            T sample_f;
-            sample_f = sample_i / BIT16_RES;
+            int16_t sample_i = getLittleEndianInt(i, m_byteData);
+            T sample_f = sample_i / BIT16_RES;
             m_Data[j] = sample_f;
         }
+    }
+
+    int16_t getLittleEndianInt(int i, int8_t *&byteData) const {
+        int16_t sample_i = ((byteData[i] & 0xff) | (byteData[i + 1] << 8));
+        return sample_i;
     };
 
     void writeData() {
@@ -217,8 +221,8 @@ private:
             u_int16_t littleEndianValue = BIT16_RES * m_Data[i];
             // Create a byte Array to write to the file
             uint8_t byteArray[sizeof(u_int16_t)];
-            byteArray[0] = (uint8_t) (littleEndianValue >> 0); // Most significant byte
-            byteArray[1] = (uint8_t) (littleEndianValue >> 8); // Least significant byte
+            byteArray[0] = (uint8_t) (littleEndianValue >> 0); // Least significant byte
+            byteArray[1] = (uint8_t) (littleEndianValue >> 8); // Most significant byte
             m_fileStream.write(reinterpret_cast<char *>(byteArray), 2); // Write to File
         }
         m_fileStream.close(); // Close the file stream
