@@ -240,7 +240,8 @@ void Wave<T>::writeDataWithMute() {
         int16_t littleEndianValue;
         // Get the value from out data array
         // If inside d_T
-        if (i > ((m_dataLength / 2) + (m_dataLength / 100)) && i < ((m_dataLength / 2) + (m_dataLength / 30)))
+        if (i >= ((m_dataLength / 2) + (m_dataLength / 100))
+        && i <= ((m_dataLength / 2) + (m_dataLength / 30)))
             littleEndianValue = 0;
         else
             littleEndianValue = std::numeric_limits<int16_t>::max() * m_Data[i];
