@@ -11,6 +11,8 @@
 #include <fstream>
 #include <limits>
 
+#define TWO_PI 6.283185307179586
+
 class WaveHeader {
 public:
     WaveHeader() = default;
@@ -44,14 +46,24 @@ private:
     uint32_t subchunk1Size{}; // Size of the fmt chunk
     uint16_t audioFormat{}; // Audio Format 1=PCM, 6=mulaw, 7=a-law
     uint16_t numOfChan{}; // Number of channels
-    uint32_t samplesPerSec{}; // Sample Rate
+    uint32_t samplesPerSec{};
+public:
+    uint32_t getSamplesPerSec() const;
+
+private:
+    // Sample Rate
     uint32_t bytesPerSec{}; // bytes per second
     uint16_t blockAlign{};// 2=16-bit mono, 4=16-bit stereo
     uint16_t bitsPerSample{}; // Number of bits per sample
 
     /* m_byteData sub-chunk */
     char Subchunk2ID[4]{}; // "m_byteData" string
-    uint32_t Subchunk2Size{}; // Sampled data length
+    uint32_t Subchunk2Size{};
+public:
+    void setSubchunk2Size(uint32_t subchunk2Size);
+
+private:
+    // Sampled data length
 
     // WAV Header is always 44 bytes
     size_t m_size{44};
@@ -110,6 +122,14 @@ void WaveHeader::printHead(char *head) {
     for (auto i = 0; i < 4; i++)
         std::cout << head[i];
     std::cout << ": " << std::endl;
+}
+
+uint32_t WaveHeader::getSamplesPerSec() const {
+    return samplesPerSec;
+}
+
+void WaveHeader::setSubchunk2Size(uint32_t subchunk2Size) {
+    Subchunk2Size = subchunk2Size;
 };
 
 
@@ -141,14 +161,20 @@ public:
         writeDataWithMute();
     };
 
+    void writeFileWithNewSampleRate(std::string fileName, uint32_t rate) {
+        setFileName(fileName);
+        writeDataWithNewSampleRate(rate);
+    };
+
+    void clearFileName() { delete m_fileName; };
+
+private:
+
     void changeSampleRate(uint32_t rate) {
         setSamplesPerSec(rate);
         setBytesPerSec(2 * rate);
     }
 
-    void clearFileName() { delete m_fileName; };
-
-private:
     void checkFileStream() {
         if (!m_fileStream.is_open())
             throw std::runtime_error("File Stream Failed to Open");
@@ -181,6 +207,8 @@ private:
     };
 
     void writeDataWithMute();
+
+    void writeDataWithNewSampleRate(uint32_t newRate);
 
     std::string *m_fileName{nullptr};
     std::fstream m_fileStream;
@@ -249,6 +277,45 @@ void Wave<T>::writeDataWithMute() {
         m_fileStream.write(reinterpret_cast<char *>(&littleEndianValue), 2);
     }
     m_fileStream.close();
+}
+
+template<typename T>
+void Wave<T>::writeDataWithNewSampleRate(uint32_t newRate) {
+    // Calculate Sizes of data at new sample rate
+    auto fileSizeOverOriginalRate = static_cast<double>(getSubchunk2Size() / getSamplesPerSec());
+    auto newChunkSize = static_cast<unsigned long>(newRate * fileSizeOverOriginalRate);
+    auto newDataLength = newChunkSize / 2;
+
+    // Build a new set of data
+    auto *newData = new T[newDataLength];
+    for (int i = 0; i < newDataLength; i++) {
+        auto new_index = ((float)i / (float)newChunkSize) * getSubchunk2Size();
+        auto index0 = static_cast<unsigned int>(new_index);
+        auto index1 = index0 + 1;
+        auto value0 = m_Data[index0];
+        auto value1 = m_Data[index1];
+        auto frac = new_index - (float) index0;
+        T currentSample = value0 + frac * (value1 - value0);
+        newData[i] = currentSample;
+    }
+
+    // Store the old values before writing
+    T* old_data = m_Data;
+    m_Data = newData;
+    auto oldSampleRate = getSamplesPerSec();
+    changeSampleRate(newRate);
+    auto oldSubChunkSize = getSubchunk2Size();
+    setSubchunk2Size(newChunkSize);
+    auto oldDataLength = m_dataLength;
+    m_dataLength = newDataLength;
+
+    // Write the new data then reset file
+    writeData();
+    m_Data = old_data;
+    m_dataLength = oldDataLength;
+    setSubchunk2Size(oldSubChunkSize);
+    changeSampleRate(oldSampleRate);
+    delete[] newData;
 }
 
 template<typename T>

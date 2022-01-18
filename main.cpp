@@ -7,14 +7,11 @@ int main() {
         wave.printFileName();
         wave.printInfo();
         wave.writeFile("test.wav");
-        wave.changeSampleRate(48000);
-        wave.writeFile("test_48000.wav");
-        std::cout << std::endl;
-        std::cout << std::endl;
-        wave.printFileName();
-        wave.printInfo();
-        wave.changeSampleRate(44100);
+        wave.writeFile("test_48000.wav");\
         wave.writeFileWithMute("test_muted.wav");
+        wave.writeFileWithNewSampleRate("test_22050.wav",22050);
+        wave.writeFileWithNewSampleRate("test_48000.wav",48000);
+        wave.writeFileWithNewSampleRate("test_88200.wav",88200);
     } catch (std::exception &e) {
         std::cout << "Exception Caught: " << e.what() << std::endl;
     }
