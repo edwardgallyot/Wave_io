@@ -3,7 +3,7 @@
 int main() {
     Wave<float> wave;
     try {
-        wave.readFile("bombay_pad.wav");
+        wave.readFile("bombay_pad_mono.wav");
         wave.printFileName();
         wave.printInfo();
         wave.writeFile("test.wav");

@@ -9,8 +9,7 @@
 #include <string>
 #include <iostream>
 #include <fstream>
-
-#define BIT16_RES 32767.0
+#include <limits>
 
 class WaveHeader {
 public:
@@ -18,77 +17,22 @@ public:
 
     ~WaveHeader() = default;
 
-    void getHeader(std::fstream &fstream) {
-        fstream.read(reinterpret_cast<char *>(RIFF), 4);
-        fstream.read(reinterpret_cast<char *>(&chunkSize), 4);
-        fstream.read(reinterpret_cast<char *>(WAVE), 4);
-        fstream.read(reinterpret_cast<char *>(fmt), 4);
-        fstream.read(reinterpret_cast<char *>(&subchunk1Size), 4);
-        fstream.read(reinterpret_cast<char *>(&audioFormat), 2);
-        fstream.read(reinterpret_cast<char *>(&numOfChan), 2);
-        fstream.read(reinterpret_cast<char *>(&samplesPerSec), 4);
-        fstream.read(reinterpret_cast<char *>(&bytesPerSec), 4);
-        fstream.read(reinterpret_cast<char *>(&blockAlign), 2);
-        fstream.read(reinterpret_cast<char *>(&bitsPerSample), 2);
-        fstream.read(reinterpret_cast<char *>(Subchunk2ID), 4);
-        fstream.read(reinterpret_cast<char *>(&Subchunk2Size), 4);
-    };
+    void getHeader(std::fstream &fstream);
 
-    void writeHeader(std::fstream &fstream) {
-        fstream.write(reinterpret_cast<char *>(RIFF), 4);
-        fstream.write(reinterpret_cast<char *>(&chunkSize), 4);
-        fstream.write(reinterpret_cast<char *>(WAVE), 4);
-        fstream.write(reinterpret_cast<char *>(fmt), 4);
-        fstream.write(reinterpret_cast<char *>(&subchunk1Size), 4);
-        fstream.write(reinterpret_cast<char *>(&audioFormat), 2);
-        fstream.write(reinterpret_cast<char *>(&numOfChan), 2);
-        fstream.write(reinterpret_cast<char *>(&samplesPerSec), 4);
-        fstream.write(reinterpret_cast<char *>(&bytesPerSec), 4);
-        fstream.write(reinterpret_cast<char *>(&blockAlign), 2);
-        fstream.write(reinterpret_cast<char *>(&bitsPerSample), 2);
-        fstream.write(reinterpret_cast<char *>(Subchunk2ID), 4);
-        fstream.write(reinterpret_cast<char *>(&Subchunk2Size), 4);
-    };
+    void writeHeader(std::fstream &fstream);
 
+    void setSamplesPerSec(uint32_t p_samplesPerSec) { samplesPerSec = p_samplesPerSec; }
 
-    void setSamplesPerSec(uint32_t p_samplesPerSec) {
-        samplesPerSec = p_samplesPerSec;
-    }
+    void setBytesPerSec(uint32_t p_bytesPerSec) { WaveHeader::bytesPerSec = p_bytesPerSec; }
 
-    void setBytesPerSec(uint32_t bytesPerSec) {
-        WaveHeader::bytesPerSec = bytesPerSec;
-    }
+    uint32_t getSubchunk2Size() const { return Subchunk2Size; }
 
-    uint32_t getSubchunk2Size() const {
-        return Subchunk2Size;
-    }
+    size_t getHeaderSize() const { return m_size; }
 
-    size_t getHeaderSize() const {
-        return m_size;
-    }
+    void printInfo();
 
-    void printInfo() {
-        std::cout << std::endl;
-        printHead(RIFF);
-        std::cout << "File Size: " << chunkSize << std::endl;
-        std::cout << std::endl;
-        printHead(WAVE);
-        printHead(fmt);
-        std::cout << "Chunk 1 Size: " << subchunk1Size << std::endl;
-        std::cout << "Channels: " << numOfChan << std::endl;
-        std::cout << "Sample Rate: " << samplesPerSec << std::endl;
-        std::cout << "Byte Rate: " << bytesPerSec << std::endl;
-        std::cout << "Bits Per Sample: " << bitsPerSample << std::endl;
-        std::cout << std::endl;
-        printHead(Subchunk2ID);
-        std::cout << "Size: " << Subchunk2Size << std::endl;
-    };
 private:
-    static void printHead(char *head) {
-        for (auto i = 0; i < 4; i++)
-            std::cout << head[i];
-        std::cout << ": " << std::endl;
-    }
+    static void printHead(char *head);
 
     /* RIFF Chunk Descriptor */
     char RIFF[4]{}; // RIFF Header Magic Header
@@ -113,6 +57,61 @@ private:
     size_t m_size{44};
 };
 
+void WaveHeader::getHeader(std::fstream &fstream) {
+    fstream.read(reinterpret_cast<char *>(RIFF), 4);
+    fstream.read(reinterpret_cast<char *>(&chunkSize), 4);
+    fstream.read(reinterpret_cast<char *>(WAVE), 4);
+    fstream.read(reinterpret_cast<char *>(fmt), 4);
+    fstream.read(reinterpret_cast<char *>(&subchunk1Size), 4);
+    fstream.read(reinterpret_cast<char *>(&audioFormat), 2);
+    fstream.read(reinterpret_cast<char *>(&numOfChan), 2);
+    fstream.read(reinterpret_cast<char *>(&samplesPerSec), 4);
+    fstream.read(reinterpret_cast<char *>(&bytesPerSec), 4);
+    fstream.read(reinterpret_cast<char *>(&blockAlign), 2);
+    fstream.read(reinterpret_cast<char *>(&bitsPerSample), 2);
+    fstream.read(reinterpret_cast<char *>(Subchunk2ID), 4);
+    fstream.read(reinterpret_cast<char *>(&Subchunk2Size), 4);
+};
+
+void WaveHeader::writeHeader(std::fstream &fstream) {
+    fstream.write(reinterpret_cast<char *>(RIFF), 4);
+    fstream.write(reinterpret_cast<char *>(&chunkSize), 4);
+    fstream.write(reinterpret_cast<char *>(WAVE), 4);
+    fstream.write(reinterpret_cast<char *>(fmt), 4);
+    fstream.write(reinterpret_cast<char *>(&subchunk1Size), 4);
+    fstream.write(reinterpret_cast<char *>(&audioFormat), 2);
+    fstream.write(reinterpret_cast<char *>(&numOfChan), 2);
+    fstream.write(reinterpret_cast<char *>(&samplesPerSec), 4);
+    fstream.write(reinterpret_cast<char *>(&bytesPerSec), 4);
+    fstream.write(reinterpret_cast<char *>(&blockAlign), 2);
+    fstream.write(reinterpret_cast<char *>(&bitsPerSample), 2);
+    fstream.write(reinterpret_cast<char *>(Subchunk2ID), 4);
+    fstream.write(reinterpret_cast<char *>(&Subchunk2Size), 4);
+};
+
+void WaveHeader::printInfo() {
+    std::cout << std::endl;
+    printHead(RIFF);
+    std::cout << "File Size: " << chunkSize << std::endl;
+    std::cout << std::endl;
+    printHead(WAVE);
+    printHead(fmt);
+    std::cout << "Chunk 1 Size: " << subchunk1Size << std::endl;
+    std::cout << "Channels: " << numOfChan << std::endl;
+    std::cout << "Sample Rate: " << samplesPerSec << std::endl;
+    std::cout << "Byte Rate: " << bytesPerSec << std::endl;
+    std::cout << "Bits Per Sample: " << bitsPerSample << std::endl;
+    std::cout << std::endl;
+    printHead(Subchunk2ID);
+    std::cout << "Size: " << Subchunk2Size << std::endl;
+};
+
+void WaveHeader::printHead(char *head) {
+    for (auto i = 0; i < 4; i++)
+        std::cout << head[i];
+    std::cout << ": " << std::endl;
+};
+
 
 template<typename T>
 class Wave : public WaveHeader {
@@ -125,9 +124,7 @@ public:
         delete[] m_byteData;
     };
 
-    void printFileName() {
-        std::cout << *m_fileName << ": " << std::endl;
-    }
+    void printFileName() { std::cout << *m_fileName << ": " << std::endl; }
 
     void readFile(std::string fileName) {
         setFileName(fileName);
@@ -153,26 +150,16 @@ public:
 
 private:
     void checkFileStream() {
-        if (!m_fileStream.is_open()) {
+        if (!m_fileStream.is_open())
             throw std::runtime_error("File Stream Failed to Open");
-        }
     }
 
     void checkFileName() {
-        if (m_fileName == nullptr) {
+        if (m_fileName == nullptr)
             throw std::runtime_error("File Name Is Not Set");
-        }
     }
 
-    void readHeader() {
-        checkFileName();
-        m_fileStream.open(*m_fileName, std::ios::in);
-        checkFileStream();
-        getHeader(m_fileStream);
-        m_fileStream.close();
-        m_byteLength = getSubchunk2Size();
-        m_dataLength = m_byteLength / 2;
-    };
+    void readHeader();
 
     void setFileName(const std::string &fileName) {
         if (m_fileName == nullptr)
@@ -181,77 +168,19 @@ private:
             *m_fileName = fileName;
     }
 
-    void readData() {
-        readHeader();
-        checkFileName();
-        m_byteData = new int8_t[m_byteLength];
-        m_fileStream.open(*m_fileName, std::ios::in);
-        checkFileStream();
-        m_fileStream.seekg(getHeaderSize(), std::ios::beg);
-        m_fileStream.read(reinterpret_cast<char *>(m_byteData), m_byteLength);
-        m_fileStream.close();
+    void readData();
 
-        m_Data = new T[m_dataLength];
-        for (auto i = 0, j = 0; i < m_byteLength; i = i + 2, j++) {
-            // Bitwise or is the same as adding two byte values together
-            // In a 16 bit integer if we shift the second byte to be first we have a little endian byte form.
-            // If we were on a big endian machine we sould swap the two terms either side of bitwise or around
-            int16_t sample_i = getLittleEndianInt(i, m_byteData);
-            T sample_f = sample_i / BIT16_RES;
-            m_Data[j] = sample_f;
-        }
-    }
+    void writeData();
 
     int16_t getLittleEndianInt(int i, int8_t *&byteData) const {
-        int16_t sample_i = ((byteData[i] & 0xff) | (byteData[i + 1] << 8));
+        // Bitwise or is the same as adding two byte values together
+        // In a 16 bit integer if we shift the second byte to be first we have a little endian byte form.
+        // If we were on a big endian machine we sould swap the two terms either side of bitwise or around
+        auto sample_i = static_cast<int16_t>((byteData[i] & 0xff) | (byteData[i + 1] << 8));
         return sample_i;
     };
 
-    void writeData() {
-        // Check there is a file name
-        checkFileName();
-        // Open up and check the file stream
-        m_fileStream.open(*m_fileName, std::ios::out);
-        checkFileStream();
-        // Write the m_headerIn of the file
-        writeHeader(m_fileStream);
-
-        for (int i = 0; i < m_dataLength; i++) {
-            // Get the value from out data array
-            u_int16_t littleEndianValue = BIT16_RES * m_Data[i];
-            // Create a byte Array to write to the file
-            uint8_t byteArray[sizeof(u_int16_t)];
-            byteArray[0] = (uint8_t) (littleEndianValue >> 0); // Least significant byte
-            byteArray[1] = (uint8_t) (littleEndianValue >> 8); // Most significant byte
-            m_fileStream.write(reinterpret_cast<char *>(byteArray), 2); // Write to File
-        }
-        m_fileStream.close(); // Close the file stream
-    };
-
-    void writeDataWithMute() {
-        // Check there is a file name
-        // Open up the File Stream
-        checkFileName();
-        m_fileStream.open(*m_fileName, std::ios::out);
-        checkFileStream();
-        // Write the header to the file
-        writeHeader(m_fileStream);
-        for (int i = 0; i < m_dataLength; i++) {
-            u_int16_t littleEndianValue;
-            // Get the value from out data array
-            // If inside d_T
-            if (i > ((m_dataLength / 2) + (m_dataLength / 100)) && i < ((m_dataLength / 2) + (m_dataLength / 30)))
-                littleEndianValue = 0;
-            else
-                littleEndianValue = BIT16_RES * m_Data[i];
-            // Create a byte Array to write to the file
-            uint8_t byteArray[sizeof(u_int16_t)];
-            byteArray[0] = (uint8_t) (littleEndianValue >> 0); // Most significant byte
-            byteArray[1] = (uint8_t) (littleEndianValue >> 8); // Least significant byte
-            m_fileStream.write(reinterpret_cast<char *>(byteArray), 2);
-        }
-        m_fileStream.close();
-    };
+    void writeDataWithMute();
 
     std::string *m_fileName{nullptr};
     std::fstream m_fileStream;
@@ -260,6 +189,77 @@ private:
     T *m_Data{nullptr};
     size_t m_dataLength{0};
 };
+
+template<typename T>
+void Wave<T>::readData() {
+    readHeader();
+    checkFileName();
+    m_byteData = new int8_t[m_byteLength];
+    m_fileStream.open(*m_fileName, std::ios::in);
+    checkFileStream();
+    m_fileStream.seekg(getHeaderSize(), std::ios::beg);
+    m_fileStream.read(reinterpret_cast<char *>(m_byteData), m_byteLength);
+    m_fileStream.close();
+
+    m_Data = new T[m_dataLength];
+    for (auto i = 0, j = 0; i < m_byteLength; i = i + 2, j++) {
+        int16_t sample_i = getLittleEndianInt(i, m_byteData);
+        T sample_f = sample_i / static_cast<T>(std::numeric_limits<int16_t>::max());
+        m_Data[j] = sample_f;
+    }
+}
+
+template<typename T>
+void Wave<T>::writeData() {
+    // Check there is a file name
+    checkFileName();
+    // Open up and check the file stream
+    m_fileStream.open(*m_fileName, std::ios::out);
+    checkFileStream();
+    // Write the m_headerIn of the file
+    writeHeader(m_fileStream);
+
+    for (int i = 0; i < m_dataLength; i++) {
+        // Get the value from out data array
+        int16_t littleEndianValue = std::numeric_limits<int16_t>::max() * m_Data[i];
+        m_fileStream.write(reinterpret_cast<char *>(&littleEndianValue), 2); // Write to File
+    }
+    m_fileStream.close(); // Close the file stream
+}
+
+template<typename T>
+void Wave<T>::writeDataWithMute() {
+    // Check there is a file name
+    // Open up the File Stream
+    checkFileName();
+    m_fileStream.open(*m_fileName, std::ios::out);
+    checkFileStream();
+    // Write the header to the file
+    writeHeader(m_fileStream);
+    for (int i = 0; i < m_dataLength; i++) {
+        int16_t littleEndianValue;
+        // Get the value from out data array
+        // If inside d_T
+        if (i > ((m_dataLength / 2) + (m_dataLength / 100)) && i < ((m_dataLength / 2) + (m_dataLength / 30)))
+            littleEndianValue = 0;
+        else
+            littleEndianValue = std::numeric_limits<int16_t>::max() * m_Data[i];
+        // Create a byte Array to write to the file
+        m_fileStream.write(reinterpret_cast<char *>(&littleEndianValue), 2);
+    }
+    m_fileStream.close();
+}
+
+template<typename T>
+void Wave<T>::readHeader() {
+    checkFileName();
+    m_fileStream.open(*m_fileName, std::ios::in);
+    checkFileStream();
+    getHeader(m_fileStream);
+    m_fileStream.close();
+    m_byteLength = getSubchunk2Size();
+    m_dataLength = m_byteLength / 2;
+}
 
 
 #endif //WAVE_IO_WAVE_H
