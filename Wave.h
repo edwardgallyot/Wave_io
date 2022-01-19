@@ -11,8 +11,6 @@
 #include <fstream>
 #include <limits>
 
-#define TWO_PI 6.283185307179586
-
 class WaveHeader {
 public:
     WaveHeader() = default;
