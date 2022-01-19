@@ -223,7 +223,7 @@ void Wave<T>::readData() {
     readHeader();
     checkFileName();
     m_byteData = new int8_t[m_byteLength];
-    m_fileStream.open(*m_fileName, std::ios::in);
+    m_fileStream.open(*m_fileName, std::ios::in | std::ios_base::binary);
     checkFileStream();
     m_fileStream.seekg(getHeaderSize(), std::ios::beg);
     m_fileStream.read(reinterpret_cast<char *>(m_byteData), m_byteLength);
@@ -242,7 +242,7 @@ void Wave<T>::writeData() {
     // Check there is a file name
     checkFileName();
     // Open up and check the file stream
-    m_fileStream.open(*m_fileName, std::ios::out);
+    m_fileStream.open(*m_fileName, std::ios::out | std::ios::binary);
     checkFileStream();
     // Write the m_headerIn of the file
     writeHeader(m_fileStream);
@@ -260,7 +260,7 @@ void Wave<T>::writeDataWithMute() {
     // Check there is a file name
     // Open up the File Stream
     checkFileName();
-    m_fileStream.open(*m_fileName, std::ios::out);
+    m_fileStream.open(*m_fileName, std::ios::out | std::ios::binary);
     checkFileStream();
     // Write the header to the file
     writeHeader(m_fileStream);
@@ -321,7 +321,7 @@ void Wave<T>::writeDataWithNewSampleRate(uint32_t newRate) {
 template<typename T>
 void Wave<T>::readHeader() {
     checkFileName();
-    m_fileStream.open(*m_fileName, std::ios::in);
+    m_fileStream.open(*m_fileName, std::ios::in | std::ios::binary);
     checkFileStream();
     getHeader(m_fileStream);
     m_fileStream.close();
