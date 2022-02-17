@@ -10,6 +10,7 @@
 #include <iostream>
 #include <fstream>
 #include <limits>
+#include <vector>
 
 class WaveHeader {
 public:
@@ -36,14 +37,27 @@ private:
 
     /* RIFF Chunk Descriptor */
     char RIFF[4]{}; // RIFF Header Magic Header
-    uint32_t chunkSize{}; // RIFF Chunk Size
+    uint32_t chunkSize{};
+public:
+    void setChunkSize(uint32_t chunkSize);
+
+private:
+    // RIFF Chunk Size
     char WAVE[4]{}; // WAVE Header
 
     /* "fmt" sub-chunk */
     char fmt[4]{}; // FMT m_headerIn
     uint32_t subchunk1Size{}; // Size of the fmt chunk
     uint16_t audioFormat{}; // Audio Format 1=PCM, 6=mulaw, 7=a-law
-    uint16_t numOfChan{}; // Number of channels
+    uint16_t numOfChan{};
+public:
+    void setNumOfChan(uint16_t numOfChan);
+
+public:
+    uint16_t getNumOfChan() const;
+
+private:
+    // Number of channels
     uint32_t samplesPerSec{};
 public:
     uint32_t getSamplesPerSec() const;
@@ -51,7 +65,12 @@ public:
 private:
     // Sample Rate
     uint32_t bytesPerSec{}; // bytes per second
-    uint16_t blockAlign{};// 2=16-bit mono, 4=16-bit stereo
+    uint16_t blockAlign{};
+public:
+    void setBlockAlign(uint16_t blockAlign);
+
+private:
+// 2=16-bit mono, 4=16-bit stereo
     uint16_t bitsPerSample{}; // Number of bits per sample
 
     /* m_byteData sub-chunk */
@@ -128,6 +147,22 @@ uint32_t WaveHeader::getSamplesPerSec() const {
 
 void WaveHeader::setSubchunk2Size(uint32_t subchunk2Size) {
     Subchunk2Size = subchunk2Size;
+}
+
+uint16_t WaveHeader::getNumOfChan() const {
+    return numOfChan;
+}
+
+void WaveHeader::setNumOfChan(uint16_t numOfChan) {
+    WaveHeader::numOfChan = numOfChan;
+}
+
+void WaveHeader::setBlockAlign(uint16_t blockAlign) {
+    WaveHeader::blockAlign = blockAlign;
+}
+
+void WaveHeader::setChunkSize(uint32_t chunkSize) {
+    WaveHeader::chunkSize = chunkSize;
 };
 
 
@@ -149,6 +184,11 @@ public:
         readData();
     };
 
+    void readMultiChannelFile(std::string fileName) {
+        setFileName(fileName);
+        readMultiChannelData();
+    };
+
     void writeFile(std::string fileName) {
         setFileName(fileName);
         writeData();
@@ -163,6 +203,8 @@ public:
         setFileName(fileName);
         writeDataWithNewSampleRate(rate);
     };
+
+    void writeMultiChannelData();
 
     void clearFileName() { delete m_fileName; };
 
@@ -194,6 +236,8 @@ private:
 
     void readData();
 
+    void readMultiChannelData();
+
     void writeData();
 
     int16_t getLittleEndianInt(int i, int8_t *&byteData) const {
@@ -214,6 +258,8 @@ private:
     size_t m_byteLength{0};
     T *m_Data{nullptr};
     size_t m_dataLength{0};
+    std::vector<T> m_vector;
+    std::vector<std::vector<T>> m_multiSignal;
 };
 
 template<typename T>
@@ -236,6 +282,30 @@ void Wave<T>::readData() {
 }
 
 template<typename T>
+void Wave<T>::readMultiChannelData() {
+    readHeader();
+    checkFileName();
+    m_byteData = new int8_t[m_byteLength];
+    m_fileStream.open(*m_fileName, std::ios::in | std::ios::binary);
+    checkFileStream();
+    m_fileStream.seekg(getHeaderSize(), std::ios::beg);
+    m_fileStream.read(reinterpret_cast<char *>(m_byteData), m_byteLength);
+    m_fileStream.close();
+
+    std::vector<std::vector<T>> newSignal(getNumOfChan(), m_vector);
+    m_multiSignal = std::move(newSignal);
+
+    for (int i = 0; i < m_byteLength; i += 6) {
+        for (int channel = 0; channel < getNumOfChan(); channel++) {
+            int index = channel * 2 + i;
+            int16_t sample_i = getLittleEndianInt(index, m_byteData);
+            T sample_f = sample_i / static_cast<T>(std::numeric_limits<int16_t>::max());
+            m_multiSignal[channel].push_back(sample_f);
+        }
+    }
+}
+
+template<typename T>
 void Wave<T>::writeData() {
     // Check there is a file name
     checkFileName();
@@ -254,6 +324,28 @@ void Wave<T>::writeData() {
 }
 
 template<typename T>
+void Wave<T>::writeMultiChannelData() {
+    checkFileName();
+    m_fileStream.open(*m_fileName, std::ios::out | std::ios::binary);
+    checkFileStream();
+    setSubchunk2Size(2 * (m_byteLength / getNumOfChan()));
+    setNumOfChan(1);
+    setBytesPerSec(getSamplesPerSec() * getNumOfChan() * 2);
+    setBlockAlign(2);
+    setChunkSize(36 + 1 * 2 * (m_byteLength / 3));
+
+    for (int channel = 0; channel < getNumOfChan(); channel++) {
+        setFileName(*m_fileName + std::to_string(channel));
+        writeHeader(m_fileStream);
+        for (int i = 0; i < m_byteLength; i += 6) {
+            int index = channel * 2 + i;
+            int16_t littleEndianValue = std::numeric_limits<int16_t>::max() * m_Data[index];
+            m_fileStream.write(reinterpret_cast<char *>(&littleEndianValue), 2); // Write to File
+        }
+    }
+}
+
+template<typename T>
 void Wave<T>::writeDataWithMute() {
     // Check there is a file name
     // Open up the File Stream
@@ -267,7 +359,7 @@ void Wave<T>::writeDataWithMute() {
         // Get the value from out data array
         // If inside d_T
         if (i >= ((m_dataLength / 2) + (m_dataLength / 100))
-        && i <= ((m_dataLength / 2) + (m_dataLength / 30)))
+            && i <= ((m_dataLength / 2) + (m_dataLength / 30)))
             littleEndianValue = 0;
         else
             littleEndianValue = std::numeric_limits<int16_t>::max() * m_Data[i];
@@ -287,7 +379,7 @@ void Wave<T>::writeDataWithNewSampleRate(uint32_t newRate) {
     // Build a new set of data
     auto *newData = new T[newDataLength];
     for (int i = 0; i < newDataLength; i++) {
-        auto new_index = ((float)i / (float)newChunkSize) * getSubchunk2Size();
+        auto new_index = ((float) i / (float) newChunkSize) * getSubchunk2Size();
         auto index0 = static_cast<unsigned int>(new_index);
         auto index1 = index0 + 1;
         auto value0 = m_Data[index0];
@@ -298,7 +390,7 @@ void Wave<T>::writeDataWithNewSampleRate(uint32_t newRate) {
     }
 
     // Store the old values before writing
-    T* old_data = m_Data;
+    T *old_data = m_Data;
     m_Data = newData;
     auto oldSampleRate = getSamplesPerSec();
     changeSampleRate(newRate);
