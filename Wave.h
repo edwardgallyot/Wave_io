@@ -32,16 +32,29 @@ public:
 
     void printInfo();
 
+    void setBlockAlign(uint16_t blockAlign);
+
+    void setChunkSize(uint32_t chunkSize);
+
+    void setNumOfChan(uint16_t numOfChan);
+
+    uint16_t getNumOfChan() const;
+
+    uint32_t getSamplesPerSec() const;
+
+    void setSubchunk2Size(uint32_t subchunk2Size);
+
+    void setBitsPerSample(uint16_t bitsPerSample);
+
+    uint16_t getBitsPerSample() const;
+
 private:
     static void printHead(char *head);
 
     /* RIFF Chunk Descriptor */
     char RIFF[4]{}; // RIFF Header Magic Header
     uint32_t chunkSize{};
-public:
-    void setChunkSize(uint32_t chunkSize);
 
-private:
     // RIFF Chunk Size
     char WAVE[4]{}; // WAVE Header
 
@@ -50,37 +63,24 @@ private:
     uint32_t subchunk1Size{}; // Size of the fmt chunk
     uint16_t audioFormat{}; // Audio Format 1=PCM, 6=mulaw, 7=a-law
     uint16_t numOfChan{};
-public:
-    void setNumOfChan(uint16_t numOfChan);
 
-public:
-    uint16_t getNumOfChan() const;
-
-private:
     // Number of channels
     uint32_t samplesPerSec{};
-public:
-    uint32_t getSamplesPerSec() const;
 
-private:
     // Sample Rate
     uint32_t bytesPerSec{}; // bytes per second
     uint16_t blockAlign{};
-public:
-    void setBlockAlign(uint16_t blockAlign);
 
-private:
 // 2=16-bit mono, 4=16-bit stereo
-    uint16_t bitsPerSample{}; // Number of bits per sample
+    uint16_t bitsPerSample{};
+
 
     /* m_byteData sub-chunk */
     char Subchunk2ID[4]{}; // "m_byteData" string
-    uint32_t Subchunk2Size{};
-public:
-    void setSubchunk2Size(uint32_t subchunk2Size);
 
-private:
     // Sampled data length
+    uint32_t Subchunk2Size{};
+
 
     // WAV Header is always 44 bytes
     size_t m_size{44};
@@ -163,6 +163,14 @@ void WaveHeader::setBlockAlign(uint16_t blockAlign) {
 
 void WaveHeader::setChunkSize(uint32_t chunkSize) {
     WaveHeader::chunkSize = chunkSize;
+}
+
+void WaveHeader::setBitsPerSample(uint16_t bitsPerSample) {
+    WaveHeader::bitsPerSample = bitsPerSample;
+}
+
+uint16_t WaveHeader::getBitsPerSample() const {
+    return bitsPerSample;
 };
 
 
@@ -204,11 +212,18 @@ public:
         writeDataWithNewSampleRate(rate);
     };
 
+    void writeFileWithBitRate(std::string fileName, uint32_t rate) {
+        setFileName(fileName);
+        writeDataWithBitRate(rate);
+    };
+
     void writeMultiChannelData();
 
     void clearFileName() { delete m_fileName; };
 
 private:
+
+    void writeDataWithBitRate(uint32_t rate);
 
     void changeSampleRate(uint32_t rate) {
         setSamplesPerSec(rate);
@@ -367,6 +382,39 @@ void Wave<T>::writeDataWithMute() {
         m_fileStream.write(reinterpret_cast<char *>(&littleEndianValue), 2);
     }
     m_fileStream.close();
+}
+
+template<typename T>
+void Wave<T>::writeDataWithBitRate(uint32_t rate) {
+    checkFileName();
+    m_fileStream.open(*m_fileName, std::ios::out | std::ios::binary);
+    checkFileStream();
+    auto bytesPerSample = rate / 8;
+    auto samplesPerFrame = getNumOfChan();
+    auto oldDataLength = getSubchunk2Size();
+    auto oldBitRate =  getBitsPerSample();
+    auto sizeMultiplier = static_cast<float>(rate) / oldBitRate;
+    auto newSubChunkSize = getSubchunk2Size() * sizeMultiplier;
+    setChunkSize(36 + (1 * bytesPerSample * getNumOfChan()));
+    setBytesPerSec(getSamplesPerSec() * getNumOfChan() * bytesPerSample);
+    setBlockAlign(bytesPerSample * getNumOfChan());
+    setBitsPerSample(bytesPerSample * 8);
+    setSubchunk2Size(newSubChunkSize);
+    writeHeader(m_fileStream);
+
+    auto increment = (getBitsPerSample() / 8) * getNumOfChan();
+
+    T* oldData = m_Data;
+    auto newDataLength = getSubchunk2Size();
+    T* newData = new T[newDataLength];
+
+    for(auto i = 0; i < newDataLength - 1; ++i){
+        newData[i] = oldData[i * 2];
+    }
+
+    m_Data = newData;
+
+    writeData();
 }
 
 template<typename T>
